@@ -63,29 +63,32 @@ jobs:
       matrix:
         service: [tasks-api, title-normalizer] # ${{matrix.service}}
     steps:
-        - uses: actions/checkout@v7
-        - run: docker build -t ${{matrix.service}} services/${{matrix.service}}
+      - uses: actions/checkout@v7
+      - run: docker build -t ${{matrix.service}} services/${{matrix.service}}
 
   publish_images:
     needs: build_images
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
-      packages: write
       contents: read
+      packages: write
     strategy:
       matrix:
-        service: [tasks-api, title-normalizer]
+        service: [tasks-api, title-normalizer] # ${{matrix.service}}
     steps:
-      - uses: actions/checkout@v4
-      - name: Log in to ghcr.io
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-      - name: Build and push
-        run: |
-          IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${{ matrix.service }}:${{ github.sha }}
-          docker build -t $IMAGE services/${{ matrix.service }}
-          docker push $IMAGE
-
+      - uses: actions/checkout@v7
+      - run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" |
+            docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      - run: |
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${{matrix.service}}"
+          IMAGE="$IMAGE:${{ github.sha }}"
+          SOURCE="https://github.com/${{ github.repository }}"
+          docker build \
+            --label "org.opencontainers.image.source=$SOURCE" \
+            -t "$IMAGE" services/${{matrix.service}}
+          docker push "$IMAGE"
 
   deploy:
     needs: [run_tests, generate_api_docs]
